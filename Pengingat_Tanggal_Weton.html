@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Pengingat Weton</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-6">
+  <div class="bg-white shadow-lg rounded-xl p-6 w-full max-w-md">
+    <h1 class="text-2xl font-bold text-center text-green-600 mb-4">Cari tahu & Ingat Wetonmu</h1>
+    <h1 class="text-1xl font-italic text-center text-green-600 mb-4">Disini kamu akan mengetahui kapan weton mu dan bisa juga menambahkannya di kalender perangkat mu</h1>
+    <label class="block text-sm font-medium text-gray-700">Masukkan catatan:</label>
+    <input type="text" id="catatan" placeholder="Contoh: Ultah Budi" class="border border-gray-300 rounded-lg p-2 w-full mb-4">
+
+    <label class="block text-sm font-medium text-gray-700">Masukkan tanggalnya:</label>
+    <input type="date" id="birthDate" class="border border-gray-300 rounded-lg p-2 w-full mb-4">
+
+    <button onclick="hitungWetonSaja()" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition w-full">Hitung Weton</button>
+
+    <h2 id="hasilWeton" class="text-xl text-center text-green-600 font-semibold mt-4"></h2>
+
+    <ul id="listWeton" class="list-disc pl-5 text-left text-sm text-gray-700"></ul>
+
+    <h3 class="text-lg font-bold mt-6 mb-2 text-gray-800">Kalender Weton Selanjutnya</h3>
+    <label for="tahunPilih" class="block text-sm font-medium text-gray-700">Pilih tahun:</label>
+    <input type="number" id="tahunPilih" value="2025" onchange="perbaruiKalenderVisual()" class="border border-gray-300 rounded-lg p-2 w-full mb-4" min="1900" max="9999">
+    <button onclick="unduhSemuaWeton()" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition w-full mb-4">Unduh Semua Tanggal Pengingat Tahun Ini</button>
+    <div id="kalenderWeton" class="grid grid-cols-1 gap-4"></div>
+  </div>
+
+  <script>
+    const hari = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+    const pasaran = ["Legi", "Pahing", "Pon", "Wage", "Kliwon"];
+    let globalHari = null;
+    let globalPasaran = null;
+    let globalCatatan = "";
+    let globalTanggalLahir = "";
+    let globalTahunCache = [];
+
+    function hitungWeton(dateStr) {
+      const inputDate = new Date(dateStr);
+      const baseDate = new Date("1938-01-01");
+      const selisihHari = Math.floor((inputDate - baseDate) / (1000 * 60 * 60 * 24));
+      const indexHari = inputDate.getDay();
+      const indexPasaran = (selisihHari % 5 + 5) % 5;
+      return { nama: `${hari[indexHari]} ${pasaran[indexPasaran]}`, hari: indexHari, pasaran: indexPasaran };
+    }
+
+    function hitungWetonSaja() {
+      const input = document.getElementById("birthDate").value;
+      const catatan = document.getElementById("catatan").value.trim();
+      if (!input) {
+        alert("Masukkan tanggal yang valid!");
+        return;
+      }
+      const weton = hitungWeton(input);
+      globalHari = weton.hari;
+      globalPasaran = weton.pasaran;
+      globalCatatan = catatan;
+      globalTanggalLahir = input;
+
+      document.getElementById("hasilWeton").innerText = `Weton kamu: ${weton.nama}`;
+      const data = JSON.parse(localStorage.getItem("wetonData")) || [];
+      data.push({ tanggal: input, weton: weton.nama, catatan });
+      localStorage.setItem("wetonData", JSON.stringify(data));
+      perbaruiKalenderVisual();
+    }
+
+    function perbaruiKalenderVisual() {
+      const tahun = document.getElementById("tahunPilih").value;
+      const baseDate = new Date("1938-01-01");
+      const container = document.getElementById("kalenderWeton");
+      container.innerHTML = "";
+      globalTahunCache = [];
+
+      if (globalHari === null || globalPasaran === null) return;
+
+      const bulanContainer = document.createElement("div");
+      bulanContainer.className = "bg-blue-50 p-3 rounded shadow";
+
+      const title = document.createElement("h4");
+      title.className = "font-semibold text-blue-800 mb-2";
+      title.textContent = `Tahun ${tahun}`;
+      bulanContainer.appendChild(title);
+
+      const ul = document.createElement("ul");
+      ul.className = "text-sm text-blue-700 list-disc pl-5";
+
+      const startDate = new Date(`${tahun}-01-01`);
+      const endDate = new Date(`${tahun}-12-31`);
+
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const selisihHari = Math.floor((d - baseDate) / (1000 * 60 * 60 * 24));
+        const hariKe = d.getDay();
+        const pasaranKe = (selisihHari % 5 + 5) % 5;
+
+        if (hariKe === globalHari && pasaranKe === globalPasaran) {
+          globalTahunCache.push(new Date(d));
+          const li = document.createElement("li");
+          const wetonStr = `${hari[hariKe]} ${pasaran[pasaranKe]}`;
+          const dateStr = d.toISOString().slice(0, 10);
+          const formatDate = dateStr.replace(/-/g, "");
+          const title = `Peringatan Weton: ${wetonStr}${globalCatatan ? " - " + globalCatatan : ""}`;
+          const icsContent = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nSUMMARY:${title}\nDTSTART;VALUE=DATE:${formatDate}\nRRULE:FREQ=YEARLY\nEND:VEVENT\nEND:VCALENDAR`;
+          const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${globalCatatan ? globalCatatan.replace(/\s+/g, '_') + '-' : ''}weton-${formatDate}-${wetonStr.replace(/\s+/g, '')}.ics`;
+          a.textContent = `Unduh (${dateStr} - ${wetonStr})`;
+          a.className = "ml-2 text-green-600 underline text-sm";
+
+          li.textContent = `${dateStr} (${wetonStr})`;
+          li.appendChild(a);
+          ul.appendChild(li);
+        }
+      }
+
+      bulanContainer.appendChild(ul);
+      container.appendChild(bulanContainer);
+    }
+
+    function unduhSemuaWeton() {
+      if (globalTahunCache.length === 0) return alert("Belum ada data untuk diunduh.");
+
+      let isiICS = "BEGIN:VCALENDAR\nVERSION:2.0\n";
+      globalTahunCache.forEach((d) => {
+        const wetonStr = `${hari[d.getDay()]} ${pasaran[(Math.floor((d - new Date("1938-01-01")) / (1000 * 60 * 60 * 24)) % 5 + 5) % 5]}`;
+        const dateStr = d.toISOString().slice(0, 10).replace(/-/g, "");
+        const title = `Weton: ${wetonStr}${globalCatatan ? ' - ' + globalCatatan : ''}`;
+        isiICS += `BEGIN:VEVENT\nSUMMARY:${title}\nDTSTART;VALUE=DATE:${dateStr}\nRRULE:FREQ=YEARLY\nEND:VEVENT\n`;
+      });
+      isiICS += "END:VCALENDAR";
+      const blob = new Blob([isiICS], { type: 'text/calendar;charset=utf-8' });
+      const link = document.createElement("a");
+      const tahun = document.getElementById("tahunPilih").value;
+      const namaFile = `${(globalCatatan || 'catatan').replace(/\s+/g, '_')}-weton-${tahun}.ics`;
+      link.href = URL.createObjectURL(blob);
+      link.download = namaFile;
+      link.click();
+    }
+
+
+  </script>
+</body>
+</html>
